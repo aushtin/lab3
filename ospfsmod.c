@@ -609,9 +609,10 @@ static void
 free_block(uint32_t blockno)
 {
 	/* EXERCISE: Your code here */
-	char *block = ospfs_block(blockno);
+	void *block = ospfs_block(OSPFS_FREEMAP_BLK);
 
-	//if 
+	bitvector_set(block, blockno);
+	
 }
 
 
