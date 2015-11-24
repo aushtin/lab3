@@ -11,14 +11,14 @@
 # information you'd like us to know, please add it at the end of the file.
 
 # Partner 1
-Name: 
-Student ID: 
-Email: 
+Name: Austin Lazaro
+Student ID: 404-158-419
+Email: aust412@gmail.com
 
 # Partner 2 (if you're working in a team)
-Name: 
-Student ID: 
-Email: 
+Name: Daryn Arakawa
+Student ID: 504-132-711
+Email: daryn.arakawa@gmail.com
 
 # Extra credit problems
 #Extra credit problem: none
