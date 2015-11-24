@@ -19,6 +19,11 @@ close FOO;
       "91308"
     ],
 
+    # read directory
+    [ 'touch test/dir-contents.txt ; ls test | tee test/dir-contents.txt | grep file1',
+      'file1'
+    ],
+
 );
 
 my($ntest) = 0;
