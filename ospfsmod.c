@@ -876,7 +876,7 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 		//goto done;
 
 		//begin exercise 
-		
+
 		uint32_t copy_bytes;
 		uint32_t offset = *f_pos;
 		uint32_t bytes_left_in_block;
@@ -895,9 +895,10 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 		else 
 			n = copy_bytes;
 
-		if (copy_to_user(buffer, data + offset, n) != 0)
-			return EFAULT;
-		
+		if (copy_to_user(buffer, data + offset, n) != 0) {
+			retval = -EFAULT;
+			goto done;
+		}
 		//end exercise
 
 		buffer += n;
