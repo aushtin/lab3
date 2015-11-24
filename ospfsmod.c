@@ -875,20 +875,30 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 		//retval = -EIO; // Replace these lines
 		//goto done;
 
-		//begin
-		uint32_t copy_bytes = count - amount;
+		//begin exercise 
+		
+		uint32_t copy_bytes;
+		uint32_t offset = *f_pos;
+		uint32_t bytes_left_in_block;
 
-		loff_t *offset = 0;
-		if (f_pos > OSPFS_BLKSIZE){
-			offset = (*f_pos - OSPFS_BLKSIZE);
-			if (copy_to_user(buffer, data + offset, copy_bytes) != 0){
-				return EFAULT;
-		} else {
-			if (copy_to_user(buffer, data + f_pos, copy_bytes) != 0){
-				return EFAULT;
-		}
+		if (*f_pos >= OSPFS_BLKSIZE)
+			offset = *f_pos % OSPFS_BLKSIZE;
 
-		//end
+		copy_bytes = count - amount;
+		bytes_left_in_block = OSPFS_BLKSIZE - offset;
+
+		//check if number of bytes we have left exceeds number of bytes left in the block
+		//if yes, copy the rest of the bytes in the block and continue the while loop
+		if ( copy_bytes > bytes_left_in_block )
+			n = bytes_left_in_block;
+		//if no, just copy the rest of the bytes
+		else 
+			n = copy_bytes;
+
+		if (copy_to_user(buffer, data + offset, n) != 0)
+			return EFAULT;
+		
+		//end exercise
 
 		buffer += n;
 		amount += n;
