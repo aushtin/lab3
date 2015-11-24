@@ -503,17 +503,8 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 }
 		 //ignore blank directory entries
 		 else continue;
-
-		 //check ok_so_far
-		 //if successfully read, continue
-		 if (ok_so_far >= 0)
-		 	f_pos++;
-		 //if filldir<0, return 
-		 else {
-		 	r=0;
-		 	break;
-		 }
-
+		 
+		 f_pos++;
 	}
 
 	// Save the file position and return!
