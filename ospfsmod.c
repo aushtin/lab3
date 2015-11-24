@@ -480,19 +480,21 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 */
 
 		/* EXERCISE: Your code here */
+		 if (entry_oi == NULL || od->od_ino == 0){
+		 	f_pos++;
+		 	continue;
+		 }
+
 		 od = ospfs_inode_data(dir_oi, ((f_pos-2)*OSPFS_DIRENTRY_SIZE));
 		 entry_oi = ospfs_inode(od->od_ino);
 
 		 if (entry_oi != 0){
 		 	if (entry_oi->oi_ftype == OSPFS_FTYPE_REG){
 		 		ok_so_far = filldir(dirent, od->od_name, strlen(od->od_name), f_pos, od->od_ino, DT_REG);
-		 		break;
 		 	} else if (entry_oi->oi_ftype == OSPFS_FTYPE_DIR){
 		 		ok_so_far = filldir(dirent, od->od_name, strlen(od->od_name), f_pos, od->od_ino, DT_DIR);
-		 		break;
 		 	} else if (entry_oi->oi_ftype == OSPFS_FTYPE_SYMLINK){
 		 		ok_so_far = filldir(dirent, od->od_name, strlen(od->od_name), f_pos, od->od_ino, DT_LNK);
-		 		break;
 		 	} else {
 		 		r = 1;
 		 		continue;
@@ -577,6 +579,18 @@ static uint32_t
 allocate_block(void)
 {
 	/* EXERCISE: Your code here */
+	void *block = ospfs_block(OSPFS_FREEMAP_BLK);
+	unsigned int i;
+
+	while (i < ospfs_super->os_nblocks){
+		if (bitvector_test(block, i)){
+			bitvector_clear(block, i);
+			return i;
+		}
+
+		i++;
+	}
+
 	return 0;
 }
 
@@ -596,6 +610,9 @@ static void
 free_block(uint32_t blockno)
 {
 	/* EXERCISE: Your code here */
+	char *block = ospfs_block(blockno);
+
+	//if 
 }
 
 
