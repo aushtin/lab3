@@ -20,7 +20,8 @@ close FOO;
     ],
 
     # read directory
-    [ 'touch test/dir-contents.txt ; ls test | tee test/dir-contents.txt | grep file1',
+
+    [ 'ls test | tee base/dir-contents.txt | grep file1',
       'file1'
     ],
 
