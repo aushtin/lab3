@@ -611,8 +611,12 @@ free_block(uint32_t blockno)
 	/* EXERCISE: Your code here */
 	void *block = ospfs_block(OSPFS_FREEMAP_BLK);
 
+	if (block == NULL){
+		return;
+	}
+
 	bitvector_set(block, blockno);
-	
+
 }
 
 
