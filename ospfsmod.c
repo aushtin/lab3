@@ -488,11 +488,6 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 od = ospfs_inode_data(dir_oi, ((f_pos-2)*OSPFS_DIRENTRY_SIZE));
 		 entry_oi = ospfs_inode(od->od_ino);
 
-		 if (entry_oi == NULL || od->od_ino == 0) // We can get an empty result. If so, move on
-		 {
-		 	f_pos++;
-		 	continue;
-		 }
 
 		 if (entry_oi != 0){
 		 	if (entry_oi->oi_ftype == OSPFS_FTYPE_REG){
@@ -508,7 +503,7 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 }
 		 //ignore blank directory entries
 		 else continue;
-		 
+
 		 f_pos++;
 	}
 
