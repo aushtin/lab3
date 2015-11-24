@@ -480,7 +480,7 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 */
 
 		/* EXERCISE: Your code here */
-		 od = ospfs_inode(dir_oi, ((f_pos-2)*OSPFS_DIRENTRY_SIZE));
+		 od = ospfs_inode_data(dir_oi, ((f_pos-2)*OSPFS_DIRENTRY_SIZE));
 		 entry_oi = ospfs_inode(od->od_ino);
 
 		 if (entry_oi != 0){
