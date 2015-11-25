@@ -616,6 +616,7 @@ free_block(uint32_t blockno)
 	}
 
 	bitvector_set(block, blockno);
+
 }
 
 
