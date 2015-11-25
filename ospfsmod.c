@@ -750,7 +750,157 @@ add_block(ospfs_inode_t *oi)
 	uint32_t *allocated[2] = { 0, 0 };
 
 	/* EXERCISE: Your code here */
-	return -EIO; // Replace this line
+	
+	uint32_t *indir_array = NULL;
+	uint32_t *data_indir = NULL;
+	uint32_t indir_blockno = 0;
+
+	uint32_t *indir_array2 = NULL;
+	uint32_t *data_indir2 = NULL;
+	uint32_t indir2_blockno = 0;
+
+	if (n == 0){
+		return -EIO;
+	} else if (n == OSPFS_MAXFILEBLKS){
+		return -ENOSPC;
+	}
+
+	if (oi->oi_direct[0] != 0 && oi->oi_size == 0}{
+		n = 1;
+	}
+	
+	int32_t indir_pos = indir_index(n);
+	int32_t indir2_pos = indir2_index(n);
+	int32_t direct_pos = direct_index(n);
+
+	if (indir_pos == -1){
+		if (oi->oi_direct[indir_pos] != 0){
+			return -EIO;
+		}
+
+		allocated[0] = allocate_block();
+		if (allocated[0] == 0){
+			if (allocated[0] != 0){
+				free_block(allocated[0]);
+			}
+
+			if (allocated[1] != 0){
+				free_block(allocated[1]);
+			}
+
+			return -ENOSPC;
+		}
+
+		memset(allocated[0], 0, OSPFS_BLKSIZE);
+		oi->oi_direct[direct_pos] = allocated[0];
+		oi->oi_size = (n+1)*OSPFS_BLKSIZE;
+		return 0;
+	}
+
+	if(indir2_pos == 0){
+
+		//allocate the block if the double indirect block is null
+		if(oi->oi_indirect2 == 0){
+			allocated[0] = allocate_block();
+			if (allocated[0] == 0){
+				if (allocated[0] != 0){
+					free_block(allocated[0]);
+				}
+
+				if (allocated[1] != 0){
+					free_block(allocated[1]);
+				}
+
+				return -ENOSPC;
+			}
+
+			indir_array2 = allocated[0];
+			data_indir2 = ospfs_block(indir2_blockno);
+			memset(data_indir2, 0, OSPFS_BLKSIZE);
+		} else {	//if we reach here, block already exists
+			indir2_blockno = oi->oi_indirect2;
+			data_indir2 = ospfs_block(indir2_blockno);
+		}
+
+		if (data_indir2[indir_pos] == 0){
+			allocated[1] = allocate_block();
+			if (allocated[1] == 0){
+				if (allocated[0] != 0){
+					free_block(allocated[0]);
+				}
+
+				if (allocated[1] != 0){
+					free_block(allocated[1]);
+				}
+
+				return -ENOSPC;
+			}
+
+			indir_blockno = allocated[1];
+			data_indir = ospfs_block(indir_blockno);
+			memset(data_indir, 0, OSPFS_BLKSIZE);
+		} 
+	} else if (oi->oi_indirect == 0){
+		allocated[1] = allocate_block();
+		if (allocated[1] == 0){
+			if (allocated[0] != 0){
+				free_block(allocated[0]);
+			}
+
+			if (allocated[1] != 0){
+				free_block(allocated[1]);
+			}
+
+			return -ENOSPC;
+		}
+
+		indir_blockno = allocated[1];
+		data_indir = ospfs_block(indir_blockno);
+		memset(data_indir, 0, OSPFS_BLKSIZE);
+	}
+	
+	if (data_indir[direct_pos]){
+		
+		if (allocated[0] != 0){
+			free_block(allocated[0]);
+		}
+
+		if (allocated[1] != 0){
+			free_block(allocated[1]);
+		}
+
+		return -EIO;
+	}
+
+	data_indir[direct_pos] = allocate_block();
+	if (data_indir[direct_pos] == 0){
+		if (allocated[0] != 0){
+			free_block(allocated[0]);
+		}
+
+		if (allocated[1] != 0){
+			free_block(allocated[1]);
+		}
+
+		return -ENOSPC;
+	}
+
+	memset(ospfs_block(data_indir[direct_pos]), 0, OSPFS_BLKSIZE);
+	oi->oi_size = (n+1)*OSPFS_BLKSIZE;
+
+	if (indir2_pos == 0){
+		if (oi->oi_indirect2 == 0){
+			oi->oi_indirect2 = indir2_blockno;
+		}
+
+		if (data_indir2[indir_pos] == 0){
+			data_indir2[indir_pos] = indir_blockno;
+		}
+	} else if (oi->oi_indirect == 0){
+		oi->oi_indirect = indir_blockno;
+	}
+
+	return 0;
 }
 
 
