@@ -765,7 +765,7 @@ add_block(ospfs_inode_t *oi)
 		return -ENOSPC;
 	}
 
-	if (oi->oi_direct[0] != 0 && oi->oi_size == 0}{
+	if (oi->oi_direct[0] != 0 && oi->oi_size == 0){
 		n = 1;
 	}
 	
