@@ -749,11 +749,9 @@ add_block(ospfs_inode_t *oi)
 
 	/* EXERCISE: Your code here */
 	
-	uint32_t *indir_array = NULL;
 	uint32_t *data_indir = NULL;
 	uint32_t indir_blockno = 0;
 
-	uint32_t *indir_array2 = NULL;
 	uint32_t *data_indir2 = NULL;
 	uint32_t indir2_blockno = 0;
 
@@ -772,7 +770,7 @@ add_block(ospfs_inode_t *oi)
 	int32_t direct_pos = direct_index(n);
 
 	if (indir_pos == -1){
-		if (oi->oi_direct[indir_pos] != 0){
+		if (oi->oi_direct[direct_pos] != 0){
 			return -EIO;
 		}
 
@@ -812,7 +810,7 @@ add_block(ospfs_inode_t *oi)
 				return -ENOSPC;
 			}
 
-			indir_array2 = allocated[0];
+			indir2_blockno = allocated[0];
 			data_indir2 = ospfs_block(indir2_blockno);
 			memset(data_indir2, 0, OSPFS_BLKSIZE);
 		} else {	//if we reach here, block already exists
