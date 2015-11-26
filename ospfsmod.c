@@ -745,7 +745,7 @@ add_block(ospfs_inode_t *oi)
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
 	// keep track of allocations to free in case of -ENOSPC
-	uint32_t *allocated[2] = { 0, 0 };
+	uint32_t allocated[2] = { 0, 0 };
 
 	/* EXERCISE: Your code here */
 	
@@ -816,7 +816,7 @@ add_block(ospfs_inode_t *oi)
 			data_indir2 = ospfs_block(indir2_blockno);
 		}
 
-		
+
 		if (data_indir2[indir_pos] == 0){
 			allocated[1] = allocate_block();
 			if (allocated[1] == 0){
@@ -1280,17 +1280,43 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 	// use struct file's f_flags field and the O_APPEND bit.
 	/* EXERCISE: Your code here */
 
+	//we want to start writing at the end of the file and make it bigger
+	if (filp->f_flags & O_APPEND){
+		*f_pos = oi->oi_size;
+	}
+
+	if ((*f_pos + count) < *f_pos){
+		return -EIO;
+	}
+
 	// If the user is writing past the end of the file, change the file's
 	// size to accomodate the request.  (Use change_size().)
-	/* EXERCISE: Your code here */
+	if ((*f_pos + count) >= oi->oi_size){
+		retval = change_size(oi, *f_pos+count);
+	}
 
-
+	if (retval != 0){
+		return retval;
+	}
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
 		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
+		uint32_t reduce_copy;// = count - amount;
+		int annex = 0;
 		char *data;
+
+		//making sure we don't go out of bounds
+		if (*f_pos == oi->oi_size){
+			if (oi->oi_size == OSPFS_MAXFILESIZE){
+				return -EIO;
+			}
+
+			oi->oi_size++;
+			blockno = ospfs_inode_blockno(oi, *f_pos);
+			oi->oi_size--;
+		} 
 
 		if (blockno == 0) {
 			retval = -EIO;
@@ -1304,9 +1330,25 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
 		/* EXERCISE: Your code here */
-		retval = -EIO; // Replace these lines
-		goto done;
+		
+		//write data
+		n = OSPFS_BLKSIZE - (*f_pos % OSPFS_BLKSIZE);
 
+		reduce_copy = count - amount;
+		if (n > reduce_copy){
+			n = reduce_copy;
+		}
+
+		if (copy_from_user((data + (*f_pos % OSPFS_BLKSIZE)), buffer, n) > 0){
+			return -EFAULT;
+		}
+
+		annex = (*f_pos + n) - oi->oi_size;
+		if (annex < 0){
+			annex = 0;
+		}
+
+		oi->oi_size += annex;
 		buffer += n;
 		amount += n;
 		*f_pos += n;
@@ -1606,6 +1648,6 @@ module_init(init_ospfs_fs)
 module_exit(exit_ospfs_fs)
 
 // Information about the module
-MODULE_AUTHOR("Skeletor");
+MODULE_AUTHOR("Daryn Arakawa and Austin Lazaro");
 MODULE_DESCRIPTION("OSPFS");
 MODULE_LICENSE("GPL");
