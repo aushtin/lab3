@@ -708,6 +708,7 @@ direct_index(uint32_t b)
 
 
 // add_block(ospfs_inode_t *oi)
+// add_block(ospfs_inode_t *oi)
 //   Adds a single data block to a file, adding indirect and
 //   doubly-indirect blocks if necessary. (Helper function for
 //   change_size).
