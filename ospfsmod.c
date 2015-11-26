@@ -708,6 +708,7 @@ direct_index(uint32_t b)
 
 
 // add_block(ospfs_inode_t *oi)
+// add_block(ospfs_inode_t *oi)
 //   Adds a single data block to a file, adding indirect and
 //   doubly-indirect blocks if necessary. (Helper function for
 //   change_size).
@@ -755,9 +756,7 @@ add_block(ospfs_inode_t *oi)
 	uint32_t *data_indir2 = NULL;
 	uint32_t indir2_blockno = 0;
 
-	if (n == 0){
-		return -EIO;
-	} else if (n == OSPFS_MAXFILEBLKS){
+	if (n == OSPFS_MAXFILEBLKS){
 		return -ENOSPC;
 	}
 
@@ -765,8 +764,8 @@ add_block(ospfs_inode_t *oi)
 		n = 1;
 	}
 	
-	int32_t indir_pos = indir_index(n);
 	int32_t indir2_pos = indir2_index(n);
+	int32_t indir_pos = indir_index(n);
 	int32_t direct_pos = direct_index(n);
 
 	if (indir_pos == -1){
@@ -787,7 +786,7 @@ add_block(ospfs_inode_t *oi)
 			return -ENOSPC;
 		}
 
-		memset(allocated[0], 0, OSPFS_BLKSIZE);
+		memset(ospfs_block(allocated[0]), 0, OSPFS_BLKSIZE);
 		oi->oi_direct[direct_pos] = allocated[0];
 		oi->oi_size = (n+1)*OSPFS_BLKSIZE;
 		return 0;
@@ -818,6 +817,7 @@ add_block(ospfs_inode_t *oi)
 			data_indir2 = ospfs_block(indir2_blockno);
 		}
 
+		
 		if (data_indir2[indir_pos] == 0){
 			allocated[1] = allocate_block();
 			if (allocated[1] == 0){
@@ -1280,7 +1280,7 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 	// Support files opened with the O_APPEND flag.  To detect O_APPEND,
 	// use struct file's f_flags field and the O_APPEND bit.
 	/* EXERCISE: Your code here */
-
+	
 	// If the user is writing past the end of the file, change the file's
 	// size to accomodate the request.  (Use change_size().)
 	/* EXERCISE: Your code here */
