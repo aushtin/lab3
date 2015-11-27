@@ -921,7 +921,7 @@ remove_block(ospfs_inode_t *oi)
 
 	uint32_t index;
 	//are we in direct block range?
-	if (n < OSPFS_NDIRECT) {
+	if (indir_index(n) == -1) {
 		//simply deallocate the last direct block
 		//find index of last direct block 
 		index = direct_index(n);
@@ -934,9 +934,10 @@ remove_block(ospfs_inode_t *oi)
 
 	}
 	//are we in indirect block range?
-	else if ( n >= OSPFS_NDIRECT && n < (OSPFS_NDIRECT + OSPFS_NINDIRECT) ) {
+	//check that we're not in direct block range or double indirect block range
+	else if ( indir_index(n) != -1 && indir2_index(n) == -1 ) {
 
-		//deallocate last block
+		//if we're in the first block in the indirect block, deallocate direct and indirect block
 		if (direct_index(n) == 0) {
 			index = direct_index(n);
 			indirect_block = ospfs_block(oi->oi_indirect);
@@ -949,6 +950,7 @@ remove_block(ospfs_inode_t *oi)
 			oi->oi_size -= (OSPFS_BLKSIZE);
 
 		}
+		//if we're not in the first block in teh indirect block, just deallocate the direct block
 		else {
 
 			index = direct_index(n);
