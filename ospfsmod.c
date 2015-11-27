@@ -775,10 +775,6 @@ add_block(ospfs_inode_t *oi)
 
 		allocated[0] = allocate_block();
 		if (allocated[0] == 0){
-			if (allocated[0] != 0){
-				free_block(allocated[0]);
-			}
-
 			if (allocated[1] != 0){
 				free_block(allocated[1]);
 			}
@@ -798,10 +794,6 @@ add_block(ospfs_inode_t *oi)
 		if(oi->oi_indirect2 == 0){
 			allocated[0] = allocate_block();
 			if (allocated[0] == 0){
-				if (allocated[0] != 0){
-					free_block(allocated[0]);
-				}
-
 				if (allocated[1] != 0){
 					free_block(allocated[1]);
 				}
@@ -825,10 +817,6 @@ add_block(ospfs_inode_t *oi)
 					free_block(allocated[0]);
 				}
 
-				if (allocated[1] != 0){
-					free_block(allocated[1]);
-				}
-
 				return -ENOSPC;
 			}
 
@@ -841,10 +829,6 @@ add_block(ospfs_inode_t *oi)
 		if (allocated[1] == 0){
 			if (allocated[0] != 0){
 				free_block(allocated[0]);
-			}
-
-			if (allocated[1] != 0){
-				free_block(allocated[1]);
 			}
 
 			return -ENOSPC;
