@@ -1289,23 +1289,23 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
-		uint32_t blockno;
+		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
 
-		uint32_t reduce_copy;// = count - amount;
-		int annex = 0;
+		int32_t annex = 0;
+		int32_t reduce_copy = count-amount;
+
 		char *data;
 
-		//making sure we don't go out of bounds
-		if (*f_pos == oi->oi_size){
-			if (oi->oi_size == OSPFS_MAXFILESIZE){
+		if(*f_pos == oi->oi_size)
+		{
+			if(oi->oi_size == OSPFS_MAXFILESIZE)
 				return -EIO;
-			}
+
 			oi->oi_size++;
 			blockno = ospfs_inode_blockno(oi, *f_pos);
 			oi->oi_size--;
-
-		} 
+		}
 
 		if (blockno == 0) {
 			retval = -EIO;
@@ -1318,22 +1318,22 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// Copy data from user space. Return -EFAULT if unable to read
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
-		/* EXERCISE: Your code here */
-		
-		//write data
-		n = OSPFS_BLKSIZE - (*f_pos % OSPFS_BLKSIZE);
+		/* COMPLETED EXERCISE: Your code here */
 
-		reduce_copy = count - amount;
-		if (n > reduce_copy){
+		int32_t offset = *f_pos % OSPFS_BLKSIZE;
+		n = OSPFS_BLKSIZE - offset;
+
+		// Copy bytes either until we hit the end
+		// of the block or satisfy the user
+		if(n > reduce_copy)
 			n = reduce_copy;
-		}
 
-		if (copy_from_user((data + (*f_pos % OSPFS_BLKSIZE)), buffer, n) > 0){
+		if(copy_from_user(data + offset, buffer, n) > 0)
 			return -EFAULT;
-		}
 
-		annex = (*f_pos + n) - oi->oi_size;
-		if (annex < 0){
+		//annex = (*f_pos + n) - oi->oi_size;
+
+		if((annex = (*f_pos + n) - oi->oi_size) < 0){
 			annex = 0;
 		}
 
