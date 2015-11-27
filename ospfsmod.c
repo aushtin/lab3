@@ -708,7 +708,6 @@ direct_index(uint32_t b)
 
 
 // add_block(ospfs_inode_t *oi)
-// add_block(ospfs_inode_t *oi)
 //   Adds a single data block to a file, adding indirect and
 //   doubly-indirect blocks if necessary. (Helper function for
 //   change_size).
@@ -918,6 +917,7 @@ remove_block(ospfs_inode_t *oi)
 	uint32_t *indirect_block = NULL;
 	uint32_t *doubly_indirect_block = NULL;
 	//check what range of blocks we're in
+	n--;
 
 	uint32_t index;
 	//are we in direct block range?
@@ -946,7 +946,7 @@ remove_block(ospfs_inode_t *oi)
 			free_block(oi->oi_indirect);
 			indirect_block = 0;
 
-			oi->oi_size -= (2 * OSPFS_BLKSIZE);
+			oi->oi_size -= (OSPFS_BLKSIZE);
 
 		}
 		else {
@@ -966,9 +966,12 @@ remove_block(ospfs_inode_t *oi)
 	else // ( n >= (OSPFS_NDIRECT + OSPFS_NINDIRECT) ) 
 	{
 
+		if (n >= OSPFS_MAXFILEBLKS)
+				return -ENOSPC;
 		//deallocate last block
 
-		//if we're in the first indirect block, deallocate direct block
+		//get index of 
+		//if we're not in the first indirect block, deallocate direct block
 		if (indir_index(n) == 0) {
 
 			doubly_indirect_block = ospfs_block(oi->oi_indirect2);
@@ -983,7 +986,7 @@ remove_block(ospfs_inode_t *oi)
 				free_block(oi->oi_indirect2);
 				doubly_indirect_block = 0;
 
-				oi->oi_size -= (3 * OSPFS_BLKSIZE);
+				oi->oi_size -= (OSPFS_BLKSIZE);
 			}
 
 			//deallocate direct block
@@ -1000,9 +1003,6 @@ remove_block(ospfs_inode_t *oi)
 
 		//we're not in first indirect block
 		else {
-
-			if (n >= OSPFS_MAXFILEBLKS)
-				return -ENOSPC;
 
 			index = indir_index(n);
 			doubly_indirect_block = ospfs_block(oi->oi_indirect2);
