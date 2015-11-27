@@ -1001,6 +1001,9 @@ remove_block(ospfs_inode_t *oi)
 		//we're not in first indirect block
 		else {
 
+			if (n >= OSPFS_MAXFILEBLKS)
+				return -ENOSPC;
+
 			index = indir_index(n);
 			doubly_indirect_block = ospfs_block(oi->oi_indirect2);
 			indirect_block = ospfs_block(doubly_indirect_block[index]);
@@ -1286,8 +1289,9 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
-		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
+		uint32_t blockno;
 		uint32_t n;
+
 		uint32_t reduce_copy;// = count - amount;
 		int annex = 0;
 		char *data;
@@ -1297,10 +1301,10 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 			if (oi->oi_size == OSPFS_MAXFILESIZE){
 				return -EIO;
 			}
-
 			oi->oi_size++;
 			blockno = ospfs_inode_blockno(oi, *f_pos);
 			oi->oi_size--;
+
 		} 
 
 		if (blockno == 0) {
