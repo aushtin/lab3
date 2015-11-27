@@ -758,28 +758,20 @@ add_block(ospfs_inode_t *oi)
 	if (n == OSPFS_MAXFILEBLKS){
 		return -ENOSPC;
 	}
-
-	if (oi->oi_direct[0] != 0 && oi->oi_size == 0){
-		n = 1;
-	}
 	
 	int32_t indir2_pos = indir2_index(n);
 	int32_t indir_pos = indir_index(n);
 	int32_t direct_pos = direct_index(n);
 
+	//we're in direct block range
 	if (indir_pos == -1){
 		if (oi->oi_direct[direct_pos] != 0){
 			return -EIO;
 		}
 
 		allocated[0] = allocate_block();
-		if (allocated[0] == 0){
-			if (allocated[1] != 0){
-				free_block(allocated[1]);
-			}
-
+		if (allocated[0] == 0)
 			return -ENOSPC;
-		}
 
 		memset(ospfs_block(allocated[0]), 0, OSPFS_BLKSIZE);
 		oi->oi_direct[direct_pos] = allocated[0];
@@ -787,28 +779,25 @@ add_block(ospfs_inode_t *oi)
 		return 0;
 	}
 
+	//if we're in the double indirect block range
 	if(indir2_pos == 0){
 
 		//allocate the block if the double indirect block is null
-		if(oi->oi_indirect2 == 0){
+		if (oi->oi_indirect2 == 0){
 			allocated[0] = allocate_block();
-			if (allocated[0] == 0){
-				if (allocated[1] != 0){
-					free_block(allocated[1]);
-				}
-
+			if (allocated[0] == 0)
 				return -ENOSPC;
-			}
 
 			indir2_blockno = allocated[0];
 			data_indir2 = ospfs_block(indir2_blockno);
 			memset(data_indir2, 0, OSPFS_BLKSIZE);
+			oi->oi_indirect2 = indir2_blockno;
 		} else {	//if we reach here, block already exists
 			indir2_blockno = oi->oi_indirect2;
 			data_indir2 = ospfs_block(indir2_blockno);
 		}
 
-
+		//allocate indirect block
 		if (data_indir2[indir_pos] == 0){
 			allocated[1] = allocate_block();
 			if (allocated[1] == 0){
@@ -822,7 +811,9 @@ add_block(ospfs_inode_t *oi)
 			indir_blockno = allocated[1];
 			data_indir = ospfs_block(indir_blockno);
 			memset(data_indir, 0, OSPFS_BLKSIZE);
+			data_indir2[indir_pos]=indir_blockno;
 		} 
+	//if we're in indirect range and indirect block hasnt been allocated
 	} else if (oi->oi_indirect == 0){
 		allocated[1] = allocate_block();
 		if (allocated[1] == 0){
@@ -836,6 +827,7 @@ add_block(ospfs_inode_t *oi)
 		indir_blockno = allocated[1];
 		data_indir = ospfs_block(indir_blockno);
 		memset(data_indir, 0, OSPFS_BLKSIZE);
+		oi->oi_indirect = indir_blockno;
 	}
 	
 	if (data_indir[direct_pos]){
@@ -867,17 +859,6 @@ add_block(ospfs_inode_t *oi)
 	memset(ospfs_block(data_indir[direct_pos]), 0, OSPFS_BLKSIZE);
 	oi->oi_size = (n+1)*OSPFS_BLKSIZE;
 
-	if (indir2_pos == 0){
-		if (oi->oi_indirect2 == 0){
-			oi->oi_indirect2 = indir2_blockno;
-		}
-
-		if (data_indir2[indir_pos] == 0){
-			data_indir2[indir_pos] = indir_blockno;
-		}
-	} else if (oi->oi_indirect == 0){
-		oi->oi_indirect = indir_blockno;
-	}
 
 	return 0;
 }
@@ -1552,6 +1533,11 @@ ospfs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidat
 	new_ino->oi_ftype = OSPFS_FTYPE_REG;
 	new_ino->oi_nlink = 1;
 	new_ino->oi_mode = mode;
+	int direct_block = 0;
+	for (direct_block = 0; direct_block < 10; direct_block++)
+		new_ino->oi_direct[direct_block] = 0;
+	new_ino->oi_indirect=0;
+	new_ino->oi_indirect2=0;
 
 	/* Execute this code after your function has successfully created the
 	   file.  Set entry_ino to the created file's inode number before
