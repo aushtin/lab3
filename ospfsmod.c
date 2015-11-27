@@ -1548,18 +1548,62 @@ ospfs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 	uint32_t entry_ino = 0;
 
 	/* EXERCISE: Your code here. */
-	return -EINVAL;
+	ospfs_direntry_t *direntry;
+	ospfs_symlink_inode_t *symlink_inode;
 
+	if (find_direntry(dir_oi, dentry->d_name.name, dentry->d_name.len)){
+		return -EEXIST;
+	}
+
+	//attempt to find an open inode
+	for (entry_ino=2; entry_ino < ospfs_super->os_ninodes; entry_ino++){
+		symlink_inode = (ospfs_symlink_inode_t*)ospfs_inode(entry_ino);
+
+		if (symlink_inode->oi_nlink == 0){
+			break;
+		}
+	}
+
+	//return -ENOSPC if there are no more free inodes
+	if (entry_ino >= ospfs_super->os_ninodes){
+		return -ENOSPC;
+	}
+
+	direntry = create_blank_direntry(dir_oi);
+	if (IS_ERR(direntry)){
+		return PTR_ERR(direntry);
+	} 
+		
+	//check if dentry->d_name.len is too large or 'symname' is too long
+	if (strlen(symname) > OSPFS_MAXSYMLINKLEN || dentry->d_name.len > OSPFS_MAXNAMELEN){
+		return -ENAMETOOLONG;
+	}
+	
+	//now we can fill in the inode
+	symlink_inode->oi_size = strlen(symname);
+	symlink_inode->oi_ftype = OSPFS_FTYPE_SYMLINK;
+	symlink_inode->oi_nlink = 1;
+	strncpy(symlink_inode->oi_symlink, symname, symlink_inode->oi_size);
+	symlink_inode->oi_symlink[symlink_inode->oi_size] = 0;
+
+	//put in inode number and dentry info
+	strncpy(direntry->od_name, dentry->d_name.name, dentry->d_name.len);
+	direntry->od_name[dentry->d_name.len] = 0;
+	direntry->od_ino = entry_ino;
+
+		
 	/* Execute this code after your function has successfully created the
-	   file.  Set entry_ino to the created file's inode number before
-	   getting here. */
+   file.  Set entry_ino to the created file's inode number before
+   getting here. */
 	{
 		struct inode *i = ospfs_mk_linux_inode(dir->i_sb, entry_ino);
 		if (!i)
 			return -ENOMEM;
+		
 		d_instantiate(dentry, i);
 		return 0;
 	}
+
 }
 
 
