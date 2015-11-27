@@ -775,10 +775,6 @@ add_block(ospfs_inode_t *oi)
 
 		allocated[0] = allocate_block();
 		if (allocated[0] == 0){
-			if (allocated[0] != 0){
-				free_block(allocated[0]);
-			}
-
 			if (allocated[1] != 0){
 				free_block(allocated[1]);
 			}
@@ -798,10 +794,6 @@ add_block(ospfs_inode_t *oi)
 		if(oi->oi_indirect2 == 0){
 			allocated[0] = allocate_block();
 			if (allocated[0] == 0){
-				if (allocated[0] != 0){
-					free_block(allocated[0]);
-				}
-
 				if (allocated[1] != 0){
 					free_block(allocated[1]);
 				}
@@ -817,16 +809,12 @@ add_block(ospfs_inode_t *oi)
 			data_indir2 = ospfs_block(indir2_blockno);
 		}
 
-		
+
 		if (data_indir2[indir_pos] == 0){
 			allocated[1] = allocate_block();
 			if (allocated[1] == 0){
 				if (allocated[0] != 0){
 					free_block(allocated[0]);
-				}
-
-				if (allocated[1] != 0){
-					free_block(allocated[1]);
 				}
 
 				return -ENOSPC;
@@ -841,10 +829,6 @@ add_block(ospfs_inode_t *oi)
 		if (allocated[1] == 0){
 			if (allocated[0] != 0){
 				free_block(allocated[0]);
-			}
-
-			if (allocated[1] != 0){
-				free_block(allocated[1]);
 			}
 
 			return -ENOSPC;
@@ -1282,51 +1266,46 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 
 	// Support files opened with the O_APPEND flag.  To detect O_APPEND,
 	// use struct file's f_flags field and the O_APPEND bit.
-	/* COMPLETED EXERCISE: Your code here */
+	/* EXERCISE: Your code here */
 
-	if(filp->f_flags & O_APPEND)
+	//we want to start writing at the end of the file and make it bigger
+	if (filp->f_flags & O_APPEND){
 		*f_pos = oi->oi_size;
+	}
+
+	if ((*f_pos + count) < *f_pos){
+		return -EIO;
+	}
 
 	// If the user is writing past the end of the file, change the file's
 	// size to accomodate the request.  (Use change_size().)
-	/* COMPLETED EXERCISE: Your code here */
+	if ((*f_pos + count) >= oi->oi_size){
+		retval = change_size(oi, *f_pos+count);
+	}
 
-	// Check for overflows in trying to write at an offset larger than possible
-	// and avoid shrinking the file as a result (and destroying data).
-	if(*f_pos + count < *f_pos)
-		return -EIO;
-
-	// Grow the file if needed and signal any -EIO or -ENOSPC errors
-	if(*f_pos + count >= oi->oi_size)
-		retval = change_size(oi, *f_pos + count);
-
-	if(retval != 0)
+	if (retval != 0){
 		return retval;
+	}
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
 		uint32_t blockno;
 		uint32_t n;
-		int32_t appended = 0;
+
+		uint32_t reduce_copy;// = count - amount;
+		int annex = 0;
 		char *data;
 
-		uint32_t data_offset; // Data offset from the start of the block
-		uint32_t bytes_left_to_copy = count - amount;
-
-		// ospfs_inode_blockno reports an error when *f_pos == oi->oi_size
-		// thus we artificially increase for it to work right. The allocated
-		// size has already been grown so we won't go out of bounds
-		if(*f_pos == oi->oi_size)
-		{
-			if(oi->oi_size == OSPFS_MAXFILESIZE)
+		//making sure we don't go out of bounds
+		if (*f_pos == oi->oi_size){
+			if (oi->oi_size == OSPFS_MAXFILESIZE){
 				return -EIO;
-
+			}
 			oi->oi_size++;
 			blockno = ospfs_inode_blockno(oi, *f_pos);
 			oi->oi_size--;
-		}
-		else // No extra precautions necessary
-			blockno = ospfs_inode_blockno(oi, *f_pos);
+
+		} 
 
 		if (blockno == 0) {
 			retval = -EIO;
@@ -1339,25 +1318,26 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// Copy data from user space. Return -EFAULT if unable to read
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
-		/* COMPLETED EXERCISE: Your code here */
+		/* EXERCISE: Your code here */
+		
+		//write data
+		n = OSPFS_BLKSIZE - (*f_pos % OSPFS_BLKSIZE);
 
-		data_offset = *f_pos % OSPFS_BLKSIZE;
-		n = OSPFS_BLKSIZE - data_offset;
+		reduce_copy = count - amount;
+		if (n > reduce_copy){
+			n = reduce_copy;
+		}
 
-		// Copy bytes either until we hit the end
-		// of the block or satisfy the user
-		if(n > bytes_left_to_copy)
-			n = bytes_left_to_copy;
-
-		if(copy_from_user(data + data_offset, buffer, n) > 0)
+		if (copy_from_user((data + (*f_pos % OSPFS_BLKSIZE)), buffer, n) > 0){
 			return -EFAULT;
+		}
 
-		appended = (*f_pos + n) - oi->oi_size;
+		annex = (*f_pos + n) - oi->oi_size;
+		if (annex < 0){
+			annex = 0;
+		}
 
-		if(appended < 0)
-			appended = 0;
-
-		oi->oi_size += appended;
+		oi->oi_size += annex;
 		buffer += n;
 		amount += n;
 		*f_pos += n;
@@ -1435,9 +1415,26 @@ create_blank_direntry(ospfs_inode_t *dir_oi)
 	//    entries and return one of them.
 
 	/* EXERCISE: Your code here. */
+	int retval = 0;
+	unsigned int off = 0;
+	ospfs_direntry_t *direntry;
 
+	while (off < dir_oi->oi_size){
+		direntry = ospfs_inode_data(dir_oi, off);
+		if (direntry->od_ino == 0){
+			return direntry;
+		}
+		off += OSPFS_DIRENTRY_SIZE;
+	}
 
-	return ERR_PTR(-EINVAL); // Replace this line
+	retval = add_block(dir_oi);
+	if (retval < 0){
+		return ERR_PTR(-EINVAL);
+	} else {
+		direntry = ospfs_inode_data(dir_oi, off);
+	}
+
+	return direntry;
 }
 
 // ospfs_link(src_dentry, dir, dst_dentry
@@ -1658,6 +1655,6 @@ module_init(init_ospfs_fs)
 module_exit(exit_ospfs_fs)
 
 // Information about the module
-MODULE_AUTHOR("Skeletor");
+MODULE_AUTHOR("Daryn Arakawa and Austin Lazaro");
 MODULE_DESCRIPTION("OSPFS");
 MODULE_LICENSE("GPL");
