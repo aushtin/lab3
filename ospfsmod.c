@@ -763,6 +763,8 @@ add_block(ospfs_inode_t *oi)
 	int32_t indir_pos = indir_index(n);
 	int32_t direct_pos = direct_index(n);
 
+
+
 	//we're in direct block range
 	if (indir_pos == -1){
 		if (oi->oi_direct[direct_pos] != 0){
@@ -781,7 +783,6 @@ add_block(ospfs_inode_t *oi)
 
 	//if we're in the double indirect block range
 	if(indir2_pos == 0){
-
 		//allocate the block if the double indirect block is null
 		if (oi->oi_indirect2 == 0){
 			allocated[0] = allocate_block();
@@ -814,7 +815,7 @@ add_block(ospfs_inode_t *oi)
 			data_indir2[indir_pos]=indir_blockno;
 		} 
 	//if we're in indirect range and indirect block hasnt been allocated
-	} else if (oi->oi_indirect == 0){
+	} else if (oi->oi_indirect == 0){	
 		allocated[1] = allocate_block();
 		if (allocated[1] == 0){
 			if (allocated[0] != 0){
@@ -828,6 +829,12 @@ add_block(ospfs_inode_t *oi)
 		data_indir = ospfs_block(indir_blockno);
 		memset(data_indir, 0, OSPFS_BLKSIZE);
 		oi->oi_indirect = indir_blockno;
+	}
+
+	//ADDING THIS ELSE STATEMENT FIXED THE BUG
+	else {
+		indir_blockno = oi->oi_indirect;
+		data_indir = ospfs_block(indir_blockno);
 	}
 	
 	if (data_indir[direct_pos]){
@@ -843,6 +850,7 @@ add_block(ospfs_inode_t *oi)
 		return -EIO;
 	}
 
+		
 	data_indir[direct_pos] = allocate_block();
 	if (data_indir[direct_pos] == 0){
 		if (allocated[0] != 0){
@@ -858,6 +866,9 @@ add_block(ospfs_inode_t *oi)
 
 	memset(ospfs_block(data_indir[direct_pos]), 0, OSPFS_BLKSIZE);
 	oi->oi_size = (n+1)*OSPFS_BLKSIZE;
+
+
+
 
 
 	return 0;
@@ -911,7 +922,7 @@ remove_block(ospfs_inode_t *oi)
 		free_block(oi->oi_direct[index]);
 		oi->oi_direct[index] = 0;
 
-		oi->oi_size -= (OSPFS_BLKSIZE);
+		oi->oi_size = n* (OSPFS_BLKSIZE);
 
 	}
 	//are we in indirect block range?
@@ -928,7 +939,7 @@ remove_block(ospfs_inode_t *oi)
 			free_block(oi->oi_indirect);
 			indirect_block = 0;
 
-			oi->oi_size -= (OSPFS_BLKSIZE);
+			oi->oi_size = n* (OSPFS_BLKSIZE);
 
 		}
 		//if we're not in the first block in teh indirect block, just deallocate the direct block
@@ -939,7 +950,7 @@ remove_block(ospfs_inode_t *oi)
 
 			free_block(indirect_block[index]);
 			indirect_block[index] = 0;
-			oi->oi_size -= (OSPFS_BLKSIZE);
+			oi->oi_size = n * (OSPFS_BLKSIZE);
 
 		}
 
@@ -969,7 +980,7 @@ remove_block(ospfs_inode_t *oi)
 				free_block(oi->oi_indirect2);
 				doubly_indirect_block = 0;
 
-				oi->oi_size -= (OSPFS_BLKSIZE);
+				oi->oi_size = n * (OSPFS_BLKSIZE);
 			}
 
 			//deallocate direct block
@@ -978,7 +989,7 @@ remove_block(ospfs_inode_t *oi)
 				index = direct_index(n);
 				free_block(indirect_block[index]);
 
-				oi->oi_size -= (OSPFS_BLKSIZE);
+				oi->oi_size = n * (OSPFS_BLKSIZE);
 
 			}
 
@@ -999,7 +1010,7 @@ remove_block(ospfs_inode_t *oi)
 				free_block(oi->oi_indirect);
 				indirect_block = 0;
 				
-				oi->oi_size -= (2 * OSPFS_BLKSIZE);
+				oi->oi_size = n * OSPFS_BLKSIZE;
 
 			}
 
@@ -1008,7 +1019,7 @@ remove_block(ospfs_inode_t *oi)
 				free_block(indirect_block[index]);
 				indirect_block[index] = 0;
 				
-				oi->oi_size -= (OSPFS_BLKSIZE);
+				oi->oi_size = n * (OSPFS_BLKSIZE);
 
 			}
 
