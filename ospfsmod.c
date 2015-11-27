@@ -1289,23 +1289,23 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
-		uint32_t blockno;
+		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
 
-		uint32_t reduce_copy;// = count - amount;
-		int annex = 0;
+		int32_t annex = 0;
+		int32_t reduce_copy = count-amount;
+
 		char *data;
 
-		//making sure we don't go out of bounds
-		if (*f_pos == oi->oi_size){
-			if (oi->oi_size == OSPFS_MAXFILESIZE){
+		if(*f_pos == oi->oi_size)
+		{
+			if(oi->oi_size == OSPFS_MAXFILESIZE)
 				return -EIO;
-			}
+
 			oi->oi_size++;
 			blockno = ospfs_inode_blockno(oi, *f_pos);
 			oi->oi_size--;
-
-		} 
+		}
 
 		if (blockno == 0) {
 			retval = -EIO;
@@ -1318,22 +1318,22 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// Copy data from user space. Return -EFAULT if unable to read
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
-		/* EXERCISE: Your code here */
-		
-		//write data
-		n = OSPFS_BLKSIZE - (*f_pos % OSPFS_BLKSIZE);
+		/* COMPLETED EXERCISE: Your code here */
 
-		reduce_copy = count - amount;
-		if (n > reduce_copy){
+		int32_t offset = *f_pos % OSPFS_BLKSIZE;
+		n = OSPFS_BLKSIZE - offset;
+
+		// Copy bytes either until we hit the end
+		// of the block or satisfy the user
+		if(n > reduce_copy)
 			n = reduce_copy;
-		}
 
-		if (copy_from_user((data + (*f_pos % OSPFS_BLKSIZE)), buffer, n) > 0){
+		if(copy_from_user(data + offset, buffer, n) > 0)
 			return -EFAULT;
-		}
 
-		annex = (*f_pos + n) - oi->oi_size;
-		if (annex < 0){
+		//annex = (*f_pos + n) - oi->oi_size;
+
+		if((annex = (*f_pos + n) - oi->oi_size) < 0){
 			annex = 0;
 		}
 
@@ -1415,26 +1415,28 @@ create_blank_direntry(ospfs_inode_t *dir_oi)
 	//    entries and return one of them.
 
 	/* EXERCISE: Your code here. */
-	int retval = 0;
-	unsigned int off = 0;
-	ospfs_direntry_t *direntry;
+	int r = 0;
+	//use same approach as find_direntry
+	int off;
+	for (off = 0; off < dir_oi->oi_size; off += OSPFS_DIRENTRY_SIZE) {
 
-	while (off < dir_oi->oi_size){
-		direntry = ospfs_inode_data(dir_oi, off);
-		if (direntry->od_ino == 0){
-			return direntry;
-		}
-		off += OSPFS_DIRENTRY_SIZE;
+		ospfs_direntry_t *od = ospfs_inode_data(dir_oi, off);
+		//check if the entry is 0
+		if (od->od_ino == 0)
+			return od;
+
+
 	}
 
-	retval = add_block(dir_oi);
-	if (retval < 0){
-		return ERR_PTR(-EINVAL);
-	} else {
-		direntry = ospfs_inode_data(dir_oi, off);
-	}
+	//if we're here we could not find a blank entry; add a block
+	r = add_block(dir_oi);
+	if (r != 0)
+		return ERR_PTR(r);
 
-	return direntry;
+	ospfs_direntry_t *od = ospfs_inode_data(dir_oi, off);
+
+
+	return od; // Replace this line
 }
 
 // ospfs_link(src_dentry, dir, dst_dentry
@@ -1508,7 +1510,46 @@ ospfs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidat
 	uint32_t entry_ino = 0;
 	/* EXERCISE: Your code here. */
 	//return -EINVAL; // Replace this line
+	ospfs_inode_t *new_ino;
 
+	//check EEXIST
+	if (find_direntry(dir_oi, dentry->d_name.name, dentry->d_name.len) != NULL) {
+		return -EEXIST;
+	}	
+
+	//find blank entry in directory
+	ospfs_direntry_t *blank = create_blank_direntry(dir_oi);
+	if (IS_ERR(blank))
+		return PTR_ERR(blank);
+
+	//find an empty inode number for our new file
+	for (entry_ino = 0; entry_ino < ospfs_super->os_ninodes; entry_ino++) {
+		new_ino = ospfs_inode(entry_ino);
+		if (new_ino->oi_nlink == 0)
+			break;
+
+	}
+
+	//disk is full (no inodes found)
+	if (entry_ino == ospfs_super->os_ninodes)
+			return -ENOSPC;
+
+	//check name 
+	if (dentry->d_name.len > OSPFS_MAXNAMELEN)
+		return -ENAMETOOLONG;
+
+	//finally done with error checking; make the dir entry and inode
+	//create dir entry//
+	//make inode number: name and inode number
+	blank->od_ino = entry_ino;
+	memset(blank->od_name, '\0', dentry->d_name.len+1);
+	memcpy(blank->od_name, dentry->d_name.name, dentry->d_name.len);
+
+	//make inode: initialize size, filetype, nlinks, and mode
+	new_ino->oi_size = 0;
+	new_ino->oi_ftype = OSPFS_FTYPE_REG;
+	new_ino->oi_nlink = 1;
+	new_ino->oi_mode = mode;
 
 	/* Execute this code after your function has successfully created the
 	   file.  Set entry_ino to the created file's inode number before
