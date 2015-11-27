@@ -1630,8 +1630,25 @@ ospfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 	ospfs_symlink_inode_t *oi =
 		(ospfs_symlink_inode_t *) ospfs_inode(dentry->d_inode->i_ino);
 	// Exercise: Your code here.
+	
+	//we will use this later to check for a pivot between paths
+	int piv = 0;
+	
+	if (strncmp(oi->oi_symlink, "root?", 5) == 0){
+		piv = strchr(oi->oi_symlink, ':') - oi->oi_symlink;
 
-	nd_set_link(nd, oi->oi_symlink);
+		//we need to check for what type of user we are (i.e. root user or normal user)
+		if (current->uid == 0){
+			oi->oi_symlink[piv] = '\0';
+			nd_set_link(nd, oi->oi_symlink + 6);
+		} else {
+			piv++;
+			nd_set_link(nd, oi->oi_symlink + piv);
+		}
+	} else {
+		nd_set_link(nd, oi->oi_symlink);
+	}
+
 	return (void *) 0;
 }
 
