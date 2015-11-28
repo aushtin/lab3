@@ -765,6 +765,7 @@ add_block(ospfs_inode_t *oi)
 	uint32_t *data_indir2 = NULL;
 	uint32_t indir2_blockno = 0;
 
+	//disk is full
 	if (n == OSPFS_MAXFILEBLKS){
 		return -ENOSPC;
 	}
@@ -772,8 +773,6 @@ add_block(ospfs_inode_t *oi)
 	int32_t indir2_pos = indir2_index(n);
 	int32_t indir_pos = indir_index(n);
 	int32_t direct_pos = direct_index(n);
-
-
 
 	//we're in direct block range
 	if (indir_pos == -1){
@@ -851,8 +850,22 @@ add_block(ospfs_inode_t *oi)
 		indir_blockno = oi->oi_indirect;
 		data_indir = ospfs_block(indir_blockno);
 	}
+	
+	//just double checking if allocated block exists
+	if (data_indir[direct_pos]){
+		
+		if (allocated[0] != 0){
+			free_block(allocated[0]);
+		}
 
-	//allocate direct block
+		if (allocated[1] != 0){
+			free_block(allocated[1]);
+		}
+
+		return -EIO;
+	}
+
+	//now we can allocate the block
 	data_indir[direct_pos] = allocate_block();
 	if (data_indir[direct_pos] == 0){
 		if (allocated[0] != 0){
@@ -1276,7 +1289,7 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		return retval;
 	}
 
-	// Copy data block by block
+	//go through each block and start copying
 	while (amount < count && retval >= 0) {
 		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
@@ -1307,14 +1320,15 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// Copy data from user space. Return -EFAULT if unable to read
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
-		/* COMPLETED EXERCISE: Your code here */
+		/* EXERCISE: Your code here */
 
 		int32_t offset = *f_pos % OSPFS_BLKSIZE;
 		n = OSPFS_BLKSIZE - offset;
-
+		
 		if(n > reduce_copy)
 			n = reduce_copy;
 
+		//we only want to copy the amount of necessary bytes (stops when we hit the end)
 		if(copy_from_user(data + offset, buffer, n) > 0)
 			return -EFAULT;
 
