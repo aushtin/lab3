@@ -1324,11 +1324,11 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 
 		int32_t offset = *f_pos % OSPFS_BLKSIZE;
 		n = OSPFS_BLKSIZE - offset;
-
-		//we only want to copy the amount of necessary bytes (stops when we hit the end)
+		
 		if(n > reduce_copy)
 			n = reduce_copy;
 
+		//we only want to copy the amount of necessary bytes (stops when we hit the end)
 		if(copy_from_user(data + offset, buffer, n) > 0)
 			return -EFAULT;
 
