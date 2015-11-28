@@ -546,7 +546,17 @@ ospfs_unlink(struct inode *dirino, struct dentry *dentry)
 
 	od->od_ino = 0;
 	oi->oi_nlink--;
-	return 0;
+
+	int retval = 0;
+	//check if nlinks is 0
+	if (oi->oi_nlink==0) {
+		//if this is not a sumbolic link then delete the file (change size to zero)
+		if (oi->oi_ftype != OSPFS_FTYPE_SYMLINK)
+			retval = change_size(oi, 0);
+	}
+	
+
+	return retval;
 }
 
 
@@ -782,6 +792,7 @@ add_block(ospfs_inode_t *oi)
 
 	//if we're in the double indirect block range
 	if(indir2_pos == 0){
+
 		//allocate the block if the double indirect block is null
 		if (oi->oi_indirect2 == 0){
 			allocated[0] = allocate_block();
@@ -792,18 +803,20 @@ add_block(ospfs_inode_t *oi)
 			data_indir2 = ospfs_block(indir2_blockno);
 			memset(data_indir2, 0, OSPFS_BLKSIZE);
 			oi->oi_indirect2 = indir2_blockno;
-		} else {	//if we reach here, block already exists
+		} 
+
+		else {	//if we reach here, block already exists
 			indir2_blockno = oi->oi_indirect2;
 			data_indir2 = ospfs_block(indir2_blockno);
 		}
 
-		//allocate indirect block
+		//allocate indirect block if we have to
 		if (data_indir2[indir_pos] == 0){
 			allocated[1] = allocate_block();
 			if (allocated[1] == 0){
-				if (allocated[0] != 0){
+				
+				if (allocated[0] != 0)
 					free_block(allocated[0]);
-				}
 
 				return -ENOSPC;
 			}
@@ -813,8 +826,10 @@ add_block(ospfs_inode_t *oi)
 			memset(data_indir, 0, OSPFS_BLKSIZE);
 			data_indir2[indir_pos]=indir_blockno;
 		} 
+	} 
+
 	//if we're in indirect range and indirect block hasnt been allocated
-	} else if (oi->oi_indirect == 0){	
+	else if (oi->oi_indirect == 0){	
 		allocated[1] = allocate_block();
 		if (allocated[1] == 0){
 			if (allocated[0] != 0){
@@ -830,7 +845,7 @@ add_block(ospfs_inode_t *oi)
 		oi->oi_indirect = indir_blockno;
 	}
 
-	//ADDING THIS ELSE STATEMENT FIXED THE BUG
+	//we're in indirect range, and the indirect block already exists
 	else {
 		indir_blockno = oi->oi_indirect;
 		data_indir = ospfs_block(indir_blockno);
@@ -981,14 +996,12 @@ remove_block(ospfs_inode_t *oi)
 
 			//deallocate direct block
 			else {
-
 				index = direct_index(n);
 				free_block(indirect_block[index]);
-
+				
 				oi->oi_size = n * (OSPFS_BLKSIZE);
-
+			
 			}
-
 		}
 
 		//we're not in first indirect block
@@ -998,7 +1011,7 @@ remove_block(ospfs_inode_t *oi)
 			doubly_indirect_block = ospfs_block(oi->oi_indirect2);
 			indirect_block = ospfs_block(doubly_indirect_block[index]);
 
-			//free 2 blocks
+			//free 2 blocks if we're in the first direct block of an indirect block
 			if (direct_index(n) == 0) {
 
 				free_block(indirect_block[0]);
@@ -1024,8 +1037,6 @@ remove_block(ospfs_inode_t *oi)
 	}
 
 	return 0;
-
-	
 }
 
 
@@ -1072,9 +1083,11 @@ change_size(ospfs_inode_t *oi, uint32_t new_size)
 	int r = 0;
 
 	while (ospfs_size2nblocks(oi->oi_size) < ospfs_size2nblocks(new_size)) {
-	        /* EXERCISE: Your code here */
-		//return -EIO; // Replace this line
+	    /* EXERCISE: Your code here */
+
 		r = add_block(oi);
+
+		//add block failed
 		if (r < 0) {
 			new_size = old_size;
 			while (ospfs_size2nblocks(oi->oi_size) > ospfs_size2nblocks(new_size)) 
@@ -1084,8 +1097,7 @@ change_size(ospfs_inode_t *oi, uint32_t new_size)
 
 	}
 	while (ospfs_size2nblocks(oi->oi_size) > ospfs_size2nblocks(new_size)) {
-	        /* EXERCISE: Your code here */
-		//return -EIO; // Replace this line
+	    /* EXERCISE: Your code here */
 
 		r = remove_block(oi);
 
@@ -1402,17 +1414,19 @@ create_blank_direntry(ospfs_inode_t *dir_oi)
 	//    entries and return one of them.
 
 	/* EXERCISE: Your code here. */
+
+	//return value for add_block
 	int r = 0;
+
 	//use same approach as find_direntry
 	int off;
 	for (off = 0; off < dir_oi->oi_size; off += OSPFS_DIRENTRY_SIZE) {
 
 		ospfs_direntry_t *od = ospfs_inode_data(dir_oi, off);
+
 		//check if the entry is 0
 		if (od->od_ino == 0)
 			return od;
-
-
 	}
 
 	//if we're here we could not find a blank entry; add a block
@@ -1464,9 +1478,9 @@ ospfs_link(struct dentry *src_dentry, struct inode *dir, struct dentry *dst_dent
 		return -ENAMETOOLONG;
 	}
 
-	//look for the directory; if it doesn't exist, we create a hardlinked file
-	if (find_direntry(ospfs_inode(dir->i_ino), dst_dentry->d_name.name, dst_dentry->d_name.len)){
-		return - EEXIST;
+	//look for the directory entry; if it doesn't exist, we create a hardlinked file
+	if (find_direntry(ospfs_inode(dir->i_ino), dst_dentry->d_name.name, dst_dentry->d_name.len) != NULL){
+		return -EEXIST;
 	} else {
 		
 		ospfs_direntry_t *direntry = create_blank_direntry(ospfs_inode(dir->i_ino));
@@ -1476,10 +1490,12 @@ ospfs_link(struct dentry *src_dentry, struct inode *dir, struct dentry *dst_dent
 			return -EIO;
 		}
 
+		//update the inode number and name
 		direntry->od_ino = src_dentry->d_inode->i_ino;
+		memset(direntry->od_name, '\0', dst_dentry->d_name.len + 1);
 		memcpy(direntry->od_name, dst_dentry->d_name.name, dst_dentry->d_name.len);
-		direntry->od_name[dst_dentry->d_name.len] = '\0';
 		
+		//update number of links
 		ospfs_inode(src_dentry->d_inode->i_ino)->oi_nlink++;
 		ospfs_inode(dir->i_ino)->oi_nlink++;
 	}
@@ -1537,10 +1553,10 @@ ospfs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidat
 
 	//find an empty inode number for our new file
 	for (entry_ino = 0; entry_ino < ospfs_super->os_ninodes; entry_ino++) {
+		
 		new_ino = ospfs_inode(entry_ino);
 		if (new_ino->oi_nlink == 0)
 			break;
-
 	}
 
 	//disk is full (no inodes found)
@@ -1564,6 +1580,7 @@ ospfs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidat
 	new_ino->oi_nlink = 1;
 	new_ino->oi_mode = mode;
 	int direct_block = 0;
+	//initialize blocks to 0
 	for (direct_block = 0; direct_block < 10; direct_block++)
 		new_ino->oi_direct[direct_block] = 0;
 	new_ino->oi_indirect=0;
